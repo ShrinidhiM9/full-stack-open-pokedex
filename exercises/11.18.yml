@@ -1,0 +1,51 @@
+name: Full Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
+
+jobs:
+  simple_deployment_pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      - name: Build
+        run: |
+          npm install
+          npm run build
+      - name: Run Tests
+        run: npm test
+      - name: Deploy to Render
+        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '#skip') }}
+        run: |
+          curl -X POST "https://api.render.com/deploy/srv-${{ secrets.RENDER_SERVICE_ID }}?key=${{ secrets.RENDER_API_KEY }}"
+
+      # ----------------------------
+      # 11.18 Discord Notification: Success
+      # ----------------------------
+      - name: Notify Discord on Success
+        if: ${{ github.event_name == 'push' && success() && !contains(github.event.head_commit.message, '#skip') }}
+        uses: Ilshidur/action-discord@v2
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          message: "✅ Deployment succeeded! Commit: ${{ github.sha }} pushed to main."
+          username: "CI Bot"
+          color: "GREEN"
+
+      # 11.18 Discord Notification: Failure
+      - name: Notify Discord on Failure
+        if: ${{ failure() }}
+        uses: Ilshidur/action-discord@v2
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          message: "❌ Build/Deployment failed!\nCommit: ${{ github.sha }}\nBranch: ${{ github.ref }}\nCheck Actions logs for details."
+          username: "CI Bot"
+          color: "RED"

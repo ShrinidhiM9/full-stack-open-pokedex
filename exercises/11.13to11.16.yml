@@ -1,0 +1,69 @@
+name: Full Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
+
+jobs:
+  # ----------------------------
+  # Exercise 11.10–11.11: Build, Test, Deploy Job
+  # ----------------------------
+  simple_deployment_pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repo
+      - uses: actions/checkout@v3
+        # 11.10: Prepare for manual deployment / workflow
+
+      # Setup Node.js
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+        # 11.10: Setup environment for build
+
+      # Install dependencies & build
+      - name: Build
+        run: |
+          npm install
+          npm run build
+        # 11.10: Build commands; can be replaced with build_step.sh if needed
+
+      # Run tests (optional)
+      - name: Run Tests
+        run: npm test
+        # 11.10–11.11: Workflow checks before deployment
+
+      # Deploy to Render
+      - name: Deploy to Render
+        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '#skip') }}
+        run: |
+          curl -X POST "https://api.render.com/deploy/srv-${{ secrets.RENDER_SERVICE_ID }}?key=${{ secrets.RENDER_API_KEY }}"
+        # 11.12–11.14: Deployment step
+        # 11.14: Only runs on push to main (not on pull request)
+        # 11.16: Skips deployment if commit message contains #skip
+
+  # ----------------------------
+  # Exercise 11.15–11.16: Version Bump and Tag Release Job
+  # ----------------------------
+  tag_release:
+    needs: [simple_deployment_pipeline]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        # 11.15: Checkout repo for tagging
+
+      # Bump version and push Git tag
+      - name: Bump version and push tag
+        if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '#skip') }}
+        uses: anothrNick/github-tag-action@1.64.0
+        with:
+          default_bump: patch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # 11.15: Automatically bump version on main branch
+        # 11.16: Skips tagging if commit message contains #skip

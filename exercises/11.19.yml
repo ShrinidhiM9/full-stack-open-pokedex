@@ -1,0 +1,19 @@
+name: Periodic Health Check
+
+# Trigger: schedule + manual push for testing
+on:
+  schedule:
+    # Runs once every 24 hours
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # allows manual trigger
+
+jobs:
+  health_check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check app health
+        uses: ilshidur/url-health-check@v1
+        with:
+          url: https://your-app-url/health
+          timeout: 10        # seconds to wait for response
+          retries: 3         # retry if request fails
